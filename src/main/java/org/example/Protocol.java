@@ -27,7 +27,7 @@ public class Protocol {
         MessageType type = MessageType.fromCode((byte) typeByte);
         int length = dis.readInt();
 
-        if (length < 0 || length > 1024 * 1024) { // защита: максимум 1 МБ
+        if (length < 0 || length > 64 * 1024) { // максимум 64 КБ
             throw new IOException("Invalid message length: " + length);
         }
 

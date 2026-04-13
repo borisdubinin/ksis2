@@ -6,10 +6,14 @@ public class UI {
 
     private final PeerManager peerManager;
     private final ChatHistory history;
+    private final UDPDiscovery discovery;
+    private final TCPListener tcpListener;
 
-    public UI(PeerManager peerManager, ChatHistory history) {
+    public UI(PeerManager peerManager, ChatHistory history, UDPDiscovery discovery, TCPListener tcpListener) {
         this.peerManager = peerManager;
-        this.history     = history;
+        this.history = history;
+        this.discovery = discovery;
+        this.tcpListener = tcpListener;
     }
 
     public void run() {
@@ -33,19 +37,28 @@ public class UI {
 
     private void sendMessage(String text) {
         peerManager.broadcast(text);
-        Event sent = Event.messageSent(text);
-        history.add(sent);
+        history.add(Event.messageSent(text));
     }
 
     private void handleCommand(String line) {
         switch (line) {
             case "/peers" -> printPeers();
-            case "/quit" -> {
-                System.out.println("Выход.");
-                System.exit(0);
-            }
+            case "/quit" -> quit();
             default -> System.out.println("Неизвестная команда.");
         }
+    }
+
+    private void quit() {
+        System.out.println("Завершение работы...");
+        peerManager.shutdown();          // разослать LEAVE и закрыть TCP-соединения
+        discovery.stop();                // остановить UDP приём
+        try {
+            tcpListener.close();         // закрыть ServerSocket
+        } catch (Exception e) {
+            System.err.println("Ошибка при закрытии TCPListener: " + e.getMessage());
+        }
+        System.out.println("Выход.");
+        System.exit(0);
     }
 
     private void printPeers() {

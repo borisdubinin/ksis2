@@ -18,8 +18,8 @@ public class P2PChat {
         ChatHistory history = new ChatHistory();
         PeerManager peerManager = new PeerManager(myName, history);
         try (TCPListener tcpListener = new TCPListener(peerManager::handleIncoming)) {
-            UDPDiscovery discovery = new UDPDiscovery(myName, peerManager, tcpListener.getTcpPort(), history);
-            UI ui = new UI(peerManager, history);
+            UDPDiscovery discovery = new UDPDiscovery(myName, peerManager, tcpListener.getTcpPort());
+            UI ui = new UI(peerManager, history, discovery, tcpListener);
 
             tcpListener.start();
             discovery.start();

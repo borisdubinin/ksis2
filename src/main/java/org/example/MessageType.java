@@ -4,7 +4,8 @@ public enum MessageType {
 
     CHAT((byte) 1),
     HELLO((byte) 2),
-    HISTORY((byte) 3);
+    HISTORY((byte) 3),
+    LEAVE((byte) 4);
 
     public final byte code;
 

@@ -1,36 +1,42 @@
 package org.example;
 
 import java.io.*;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
+import java.net.*;
+import java.util.Enumeration;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class UDPDiscovery {
 
     public static final int UDP_PORT = 5556;
-
     private final String myName;
     private final PeerManager peerManager;
     private final int tcpListenerPort;
-    private final ChatHistory chatHistory;
+    private final AtomicBoolean running = new AtomicBoolean(true);
+    private DatagramSocket receiveSocket;
 
-    public UDPDiscovery(String myName, PeerManager peerManager, int tcpListenerPort, ChatHistory chatHistory) {
+    public UDPDiscovery(String myName, PeerManager peerManager, int tcpListenerPort) {
         this.myName = myName;
         this.peerManager = peerManager;
         this.tcpListenerPort = tcpListenerPort;
-        this.chatHistory = chatHistory;
     }
 
     public void start() {
         Thread receiver = new Thread(this::receiveLoop, "udp-receiver");
-        receiver.setDaemon(true);
+        receiver.setDaemon(false);
         receiver.start();
-
         sendAnnounce();
+    }
+
+    public void stop() {
+        running.set(false);
+        if (receiveSocket != null && !receiveSocket.isClosed()) {
+            receiveSocket.close();
+        }
     }
 
     // Отправляем broadcast со своим именем
     private void sendAnnounce() {
+        if (!running.get()) return;
         try (DatagramSocket socket = new DatagramSocket()) {
             socket.setBroadcast(true);
             DatagramPacket packet = createDatagramPacket();
@@ -42,28 +48,48 @@ public class UDPDiscovery {
 
     // Слушаем чужие объявления и подключаемся к ним по TCP.
     private void receiveLoop() {
-        try (DatagramSocket socket = new DatagramSocket(UDP_PORT)) {
-            socket.setBroadcast(true);
+        try {
+            receiveSocket = new DatagramSocket(UDP_PORT);
+            receiveSocket.setBroadcast(true);
             byte[] buf = new byte[256];
 
-            while (true) {
+            while (running.get() && !receiveSocket.isClosed()) {
                 DatagramPacket packet = new DatagramPacket(buf, buf.length);
-                socket.receive(packet);
-
+                try {
+                    receiveSocket.receive(packet);
+                } catch (SocketException e) {
+                    if (!running.get()) break;
+                    throw e;
+                }
                 InetAddress senderAddr = packet.getAddress();
-                int tcpListenerPort;
+                if (isSelfAddress(senderAddr)) continue;
+                int remoteTcpPort;
                 String name;
                 try(DataInputStream dis = new DataInputStream(
                         new ByteArrayInputStream(packet.getData(), 0, packet.getLength()))) {
-                    tcpListenerPort = dis.readInt();
+                    remoteTcpPort = dis.readInt();
                     name = dis.readUTF();
                 }
 
-                peerManager.connectTo(senderAddr, tcpListenerPort, name);
+                peerManager.connectTo(senderAddr, remoteTcpPort, name);
             }
         } catch (IOException e) {
             System.err.println("UDP receive error: " + e.getMessage());
         }
+    }
+
+    private boolean isSelfAddress(InetAddress addr) {
+        try {
+            Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
+            while (ifaces.hasMoreElements()) {
+                NetworkInterface iface = ifaces.nextElement();
+                Enumeration<InetAddress> addrs = iface.getInetAddresses();
+                while (addrs.hasMoreElements()) {
+                    if (addrs.nextElement().equals(addr)) return true;
+                }
+            }
+        } catch (SocketException ignored) {}
+        return false;
     }
 
     private DatagramPacket createDatagramPacket() throws IOException {
