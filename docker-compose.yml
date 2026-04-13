@@ -1,0 +1,36 @@
+version: '3.8'
+services:
+  node1:
+    build: .
+    container_name: chat-node1
+    command: [ "node1" ]
+    stdin_open: true
+    tty: true
+    networks:
+      chat-net:
+        ipv4_address: 192.168.10.10
+  node2:
+    build: .
+    container_name: chat-node2
+    command: [ "node2" ]
+    stdin_open: true
+    tty: true
+    networks:
+      chat-net:
+        ipv4_address: 192.168.10.11
+  node3:
+    build: .
+    container_name: chat-node3
+    command: [ "node3" ]
+    stdin_open: true
+    tty: true
+    networks:
+      chat-net:
+        ipv4_address: 192.168.10.12
+
+networks:
+  chat-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.10.0/24
