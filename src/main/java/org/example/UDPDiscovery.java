@@ -100,7 +100,7 @@ public class UDPDiscovery {
             dos.writeUTF(myName);
 
             byte[] data = baos.toByteArray();
-            return new DatagramPacket(data, data.length, InetAddress.getByName("192.168.10.255"), UDP_PORT);
+            return new DatagramPacket(data, data.length, InetAddress.getByName("255.255.255.255"), UDP_PORT);
         }
     }
 }
