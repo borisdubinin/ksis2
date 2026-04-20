@@ -15,16 +15,14 @@ public class P2PChat {
             System.exit(1);
         }
 
-        ChatHistory history = new ChatHistory();
-        PeerManager peerManager = new PeerManager(myName, history);
-        try (TCPListener tcpListener = new TCPListener(peerManager::handleIncoming)) {
-            UDPDiscovery discovery = new UDPDiscovery(myName, peerManager, tcpListener.getTcpPort());
-            UI ui = new UI(peerManager, history, discovery, tcpListener);
+        PeerManager peerManager = new PeerManager(myName);
+        TCPListener tcpListener = new TCPListener(peerManager);
+        UDPDiscovery discovery = new UDPDiscovery(myName, peerManager, tcpListener.getTcpPort());
+        UI ui = new UI(peerManager, discovery, tcpListener);
 
-            tcpListener.start();
-            discovery.start();
+        tcpListener.start();
+        discovery.start();
+        ui.run();
 
-            ui.run();
-        }
     }
 }

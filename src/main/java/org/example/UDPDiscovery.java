@@ -1,7 +1,15 @@
 package org.example;
 
-import java.io.*;
-import java.net.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.util.Enumeration;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -24,7 +32,7 @@ public class UDPDiscovery {
         Thread receiver = new Thread(this::receiveLoop, "udp-receiver");
         receiver.setDaemon(false);
         receiver.start();
-        sendAnnounce();
+        sendAnnouncement();
     }
 
     public void stop() {
@@ -34,8 +42,7 @@ public class UDPDiscovery {
         }
     }
 
-    // Отправляем broadcast со своим именем
-    private void sendAnnounce() {
+    private void sendAnnouncement() {
         if (!running.get()) return;
         try (DatagramSocket socket = new DatagramSocket()) {
             socket.setBroadcast(true);
@@ -46,7 +53,6 @@ public class UDPDiscovery {
         }
     }
 
-    // Слушаем чужие объявления и подключаемся к ним по TCP.
     private void receiveLoop() {
         try {
             receiveSocket = new DatagramSocket(UDP_PORT);
@@ -71,7 +77,7 @@ public class UDPDiscovery {
                     name = dis.readUTF();
                 }
 
-                peerManager.connectTo(senderAddr, remoteTcpPort, name);
+                peerManager.initiateNewConnection(senderAddr, remoteTcpPort, name);
             }
         } catch (IOException e) {
             System.err.println("UDP receive error: " + e.getMessage());

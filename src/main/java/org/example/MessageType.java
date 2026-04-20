@@ -2,10 +2,9 @@ package org.example;
 
 public enum MessageType {
 
-    CHAT((byte) 1),
-    HELLO((byte) 2),
-    HISTORY((byte) 3),
-    LEAVE((byte) 4);
+    MESSAGE((byte) 1),
+    NAME((byte) 2),
+    HISTORY((byte) 3);
 
     public final byte code;
 

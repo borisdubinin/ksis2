@@ -1,56 +1,78 @@
 package org.example;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetSocketAddress;
+import java.lang.reflect.Type;
 import java.net.Socket;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
+import java.time.LocalTime;
+import java.util.List;
 
 public class TCPConnection {
 
     private final Socket socket;
-    private final String peerIp;
+    private volatile String peerName = null;
+    private volatile boolean isClosing = false;
 
-    private volatile String peerName = null; // приходит в первом HELLO-пакете
+    private static final Gson gson = new GsonBuilder()
+            .registerTypeAdapter(LocalTime.class, (com.google.gson.JsonSerializer<LocalTime>)
+                    (src, typeOfSrc, context) -> context.serialize(src.toString()))
+            .registerTypeAdapter(LocalTime.class, (com.google.gson.JsonDeserializer<LocalTime>)
+                    (json, typeOfT, context) -> LocalTime.parse(json.getAsString()))
+            .create();
+    private static final Type EVENT_LIST_TYPE = new TypeToken<List<Event>>() {
+    }.getType();
 
-    private final BiConsumer<TCPConnection, Message> onMessage;
-
-    private final Consumer<TCPConnection> onDisconnect;
-
-    public TCPConnection(Socket socket,
-                         BiConsumer<TCPConnection, Message> onMessage,
-                         Consumer<TCPConnection> onDisconnect) throws IOException {
+    public TCPConnection(Socket socket) throws IOException {
         this.socket = socket;
-        this.peerIp = ((InetSocketAddress) socket.getRemoteSocketAddress())
-                .getAddress().getHostAddress();
-        this.onMessage = onMessage;
-        this.onDisconnect = onDisconnect;
 
-        Thread reader = new Thread(this::readLoop, "reader-" + peerIp);
+        Thread reader = new Thread(this::readLoop, "reader-" + getPeerIP());
         reader.setDaemon(true);
         reader.start();
     }
 
-    public synchronized void send(Message msg) {
+    public boolean isClosed() {
+        return isClosing;
+    }
+
+    public synchronized void send(Message message) {
         if (socket.isClosed()) return;
         try {
-            Protocol.write(socket.getOutputStream(), msg);
+            Protocol.write(socket.getOutputStream(), message);
         } catch (IOException e) {
             close();
         }
     }
 
-    public void close() {
-        try {
-            socket.close();
-        } catch (IOException ignored) {
+    public void sendFullHistory() {
+        List<Event> history = ChatHistory.getEvents();
+        String json = gson.toJson(history, EVENT_LIST_TYPE);
+        send(new Message(MessageType.HISTORY, json));
+    }
 
+    public void close() {
+        if (isClosing) return;
+        isClosing = true;
+
+        try {
+            if (!socket.isClosed()) {
+                ChatHistory.add(Event.peerLeft(getPeerName(), getPeerIP()));
+                socket.shutdownOutput();
+                socket.close();
+            }
+        } catch (IOException e) {
+            try {
+                socket.close();
+            } catch (IOException ignored) {
+            }
         }
     }
 
-    public String getPeerIp() {
-        return peerIp;
+    public String getPeerIP() {
+        return socket.getInetAddress().getHostAddress();
     }
 
     public String getPeerName() {
@@ -64,14 +86,30 @@ public class TCPConnection {
     private void readLoop() {
         try (InputStream in = socket.getInputStream()) {
             while (!socket.isClosed()) {
-                Message msg = Protocol.read(in);
-                if (msg == null) break;
-                onMessage.accept(this, msg);
+                Message message = Protocol.read(in);
+                if (message == null) break;
+                acceptMessage(message);
             }
         } catch (IOException ignored) {
         } finally {
             close();
-            onDisconnect.accept(this);
+        }
+    }
+
+    private void acceptMessage(Message message) {
+        switch (message.type()) {
+            case NAME -> {
+                setPeerName(message.body());
+                ChatHistory.add(Event.peerJoined(getPeerName(), getPeerIP()));
+            }
+            case MESSAGE -> ChatHistory.add((Event.messageReceived(getPeerName(), getPeerIP(), message.body())));
+            case HISTORY -> {
+                if (!PeerManager.isHistoryReceived()) {
+                    List<Event> history = gson.fromJson(message.body(), EVENT_LIST_TYPE);
+                    ChatHistory.addEventsFromHistory(history);
+                    PeerManager.setHistoryReceived(true);
+                }
+            }
         }
     }
 }

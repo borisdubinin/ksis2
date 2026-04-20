@@ -5,14 +5,12 @@ import java.util.Scanner;
 public class UI {
 
     private final PeerManager peerManager;
-    private final ChatHistory history;
-    private final UDPDiscovery discovery;
+    private final UDPDiscovery udpDiscovery;
     private final TCPListener tcpListener;
 
-    public UI(PeerManager peerManager, ChatHistory history, UDPDiscovery discovery, TCPListener tcpListener) {
+    public UI(PeerManager peerManager, UDPDiscovery udpDiscovery, TCPListener tcpListener) {
         this.peerManager = peerManager;
-        this.history = history;
-        this.discovery = discovery;
+        this.udpDiscovery = udpDiscovery;
         this.tcpListener = tcpListener;
     }
 
@@ -30,30 +28,26 @@ public class UI {
             if (line.startsWith("/")) {
                 handleCommand(line);
             } else {
-                sendMessage(line);
+                peerManager.sendMessageToAll(line);
             }
         }
-    }
-
-    private void sendMessage(String text) {
-        peerManager.broadcast(text);
-        history.add(Event.messageSent(text));
     }
 
     private void handleCommand(String line) {
         switch (line) {
             case "/peers" -> printPeers();
             case "/quit" -> quit();
+            case "/history" -> printHistory();
             default -> System.out.println("Неизвестная команда.");
         }
     }
 
     private void quit() {
         System.out.println("Завершение работы...");
-        peerManager.shutdown();          // разослать LEAVE и закрыть TCP-соединения
-        discovery.stop();                // остановить UDP приём
+        peerManager.closeAllConnections();
+        udpDiscovery.stop();
         try {
-            tcpListener.close();         // закрыть ServerSocket
+            tcpListener.close();
         } catch (Exception e) {
             System.err.println("Ошибка при закрытии TCPListener: " + e.getMessage());
         }
@@ -67,6 +61,12 @@ public class UI {
             System.out.println("Нет активных подключений.");
             return;
         }
-        peers.forEach(p ->System.out.printf("  %s (%s)%n", p.getPeerName(), p.getPeerIp()));
+        peers.forEach(p ->System.out.printf("  %s (%s)%n", p.getPeerName(), p.getPeerIP()));
+    }
+
+    private void printHistory() {
+        for(Event event : ChatHistory.getEvents()) {
+            System.out.println(event.format());
+        }
     }
 }

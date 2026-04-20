@@ -3,16 +3,15 @@ package org.example;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.function.Consumer;
 
-public class TCPListener implements AutoCloseable {
+public class TCPListener {
 
-    private final Consumer<Socket> onNewSocket;
+    private final PeerManager peerManager;
     private final ServerSocket serverSocket;
 
-    public TCPListener(Consumer<Socket> onNewSocket) {
-        this.onNewSocket = onNewSocket;
+    public TCPListener(PeerManager peerManager) {
         try {
+            this.peerManager = peerManager;
             serverSocket = new ServerSocket(0);
             serverSocket.setReuseAddress(true);
         } catch (IOException e) {
@@ -36,7 +35,7 @@ public class TCPListener implements AutoCloseable {
                 Socket client = serverSocket.accept();
 
                 Thread handler = new Thread(
-                        () -> onNewSocket.accept(client),
+                        () -> peerManager.acceptNewConnection(client),
                         "conn-handler-" + client.getInetAddress().getHostAddress()
                 );
                 handler.setDaemon(true);
@@ -48,7 +47,6 @@ public class TCPListener implements AutoCloseable {
         }
     }
 
-    @Override
     public void close() throws Exception {
         if (serverSocket != null && !serverSocket.isClosed()) {
             serverSocket.close();

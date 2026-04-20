@@ -2,26 +2,26 @@ package org.example;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class ChatHistory {
 
-    private final List<Event> events = Collections.synchronizedList(new ArrayList<>());
+    private static final List<Event> events = Collections.synchronizedList(new ArrayList<>());
 
-    public void add(Event event) {
+    public static void add(Event event) {
         events.add(event);
         System.out.println(event.format());
     }
 
-    public List<Event> getHistory() {
+    public static List<Event> getEvents() {
         synchronized (events) {
             return List.copyOf(events);
         }
     }
 
-    public void setHistory(List<Event> history) {
-        for(Event event : history) {
-            add(event);
-        }
+    public static void addEventsFromHistory(List<Event> historyEvents) {
+        events.addAll(historyEvents);
+        events.sort(Comparator.comparing(Event::time));
     }
 }
