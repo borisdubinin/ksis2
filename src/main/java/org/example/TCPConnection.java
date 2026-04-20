@@ -43,7 +43,7 @@ public class TCPConnection {
         try {
             Protocol.write(socket.getOutputStream(), message);
         } catch (IOException e) {
-            close();
+            close(false);
         }
     }
 
@@ -53,13 +53,13 @@ public class TCPConnection {
         send(new Message(MessageType.HISTORY, json));
     }
 
-    public void close() {
+    public void close(boolean shouldAddPeerLeftEvent) {
         if (isClosing) return;
         isClosing = true;
 
         try {
             if (!socket.isClosed()) {
-                ChatHistory.add(Event.peerLeft(getPeerName(), getPeerIP()));
+                if (shouldAddPeerLeftEvent) ChatHistory.add(Event.peerLeft(getPeerName(), getPeerIP()));
                 socket.shutdownOutput();
                 socket.close();
             }
@@ -92,7 +92,7 @@ public class TCPConnection {
             }
         } catch (IOException ignored) {
         } finally {
-            close();
+            close(true);
         }
     }
 
@@ -100,14 +100,15 @@ public class TCPConnection {
         switch (message.type()) {
             case NAME -> {
                 setPeerName(message.body());
-                ChatHistory.add(Event.peerJoined(getPeerName(), getPeerIP()));
             }
-            case MESSAGE -> ChatHistory.add((Event.messageReceived(getPeerName(), getPeerIP(), message.body())));
+            case MESSAGE -> ChatHistory.add((Event.message(getPeerName(), getPeerIP(), message.body())));
             case HISTORY -> {
-                if (!PeerManager.isHistoryReceived()) {
-                    List<Event> history = gson.fromJson(message.body(), EVENT_LIST_TYPE);
-                    ChatHistory.addEventsFromHistory(history);
-                    PeerManager.setHistoryReceived(true);
+                synchronized (PeerManager.getHistoryReceived()) {
+                    if (!PeerManager.getHistoryReceived().get()) {
+                        PeerManager.setHistoryReceived(true);
+                        List<Event> history = gson.fromJson(message.body(), EVENT_LIST_TYPE);
+                        ChatHistory.addEventsFromHistory(history);
+                    }
                 }
             }
         }

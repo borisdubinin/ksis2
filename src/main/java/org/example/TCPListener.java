@@ -31,7 +31,7 @@ public class TCPListener {
 
     private void listen() {
         try {
-            while (true) {
+            while (!serverSocket.isClosed()) {
                 Socket client = serverSocket.accept();
 
                 Thread handler = new Thread(
@@ -41,9 +41,8 @@ public class TCPListener {
                 handler.setDaemon(true);
                 handler.start();
             }
-        } catch (IOException e) {
+        } catch (IOException ignored) {
 
-            System.err.println("TCPServer error: " + e.getMessage());
         }
     }
 

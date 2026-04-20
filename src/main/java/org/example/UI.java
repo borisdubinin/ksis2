@@ -1,5 +1,6 @@
 package org.example;
 
+import java.net.UnknownHostException;
 import java.util.Scanner;
 
 public class UI {
@@ -14,11 +15,11 @@ public class UI {
         this.tcpListener = tcpListener;
     }
 
-    public void run() {
+    public void run() throws UnknownHostException {
         readInputLoop();
     }
 
-    private void readInputLoop() {
+    private void readInputLoop() throws UnknownHostException {
         Scanner scanner = new Scanner(System.in);
 
         while (scanner.hasNextLine()) {

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -24,8 +25,8 @@ public class PeerManager {
         return Collections.unmodifiableCollection(peers);
     }
 
-    public static boolean isHistoryReceived() {
-        return historyReceived.get();
+    public static AtomicBoolean getHistoryReceived() {
+        return historyReceived;
     }
 
     public static void setHistoryReceived(boolean isHistoryReceived) {
@@ -54,14 +55,15 @@ public class PeerManager {
             conn.send(new Message(MessageType.NAME, myName));
             conn.sendFullHistory();
             peers.add(conn);
+            ChatHistory.add(Event.peerJoined(name, address.getHostAddress()));
         } catch (IOException e) {
             System.err.println("Could not connect to " + address.getHostAddress() + ": " + e.getMessage());
         }
     }
 
-    public void sendMessageToAll(String text) {
+    public void sendMessageToAll(String text) throws UnknownHostException {
         Message message = new Message(MessageType.MESSAGE, text);
-        ChatHistory.add(Event.messageSent(text));
+        ChatHistory.add(Event.message(myName, InetAddress.getLocalHost().getHostAddress(), text));
         for (TCPConnection conn : peers) {
             conn.send(message);
         }
@@ -69,7 +71,7 @@ public class PeerManager {
 
     public void closeAllConnections() {
         for(TCPConnection connection : peers) {
-            connection.close();
+            connection.close(false);
         }
         peers.clear();
     }
