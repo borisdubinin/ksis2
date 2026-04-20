@@ -76,7 +76,7 @@ public class PeerManager {
 
     private static String getMyIP() {
         try (DatagramSocket socket = new DatagramSocket()) {
-            socket.connect(InetAddress.getByName("8.8.8.8"), 10002);
+            socket.connect(InetAddress.getByName("192.168.56.1"), 10002);
             return socket.getLocalAddress().getHostAddress();
         } catch (IOException e) {
             try {
