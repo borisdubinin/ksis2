@@ -1,10 +1,7 @@
 package org.example;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -14,6 +11,7 @@ public class PeerManager {
 
     private final ConcurrentLinkedQueue<TCPConnection> peers = new ConcurrentLinkedQueue<>();
     private final String myName;
+    private static final String myIP = getMyIP();
     private static final AtomicBoolean historyReceived = new AtomicBoolean(false);
 
     public PeerManager(String myName) {
@@ -63,7 +61,7 @@ public class PeerManager {
 
     public void sendMessageToAll(String text) throws UnknownHostException {
         Message message = new Message(MessageType.MESSAGE, text);
-        ChatHistory.add(Event.message(myName, InetAddress.getLocalHost().getHostAddress(), text));
+        ChatHistory.add(Event.message(myName, myIP, text));
         for (TCPConnection conn : peers) {
             conn.send(message);
         }
@@ -74,5 +72,18 @@ public class PeerManager {
             connection.close(false);
         }
         peers.clear();
+    }
+
+    private static String getMyIP() {
+        try (DatagramSocket socket = new DatagramSocket()) {
+            socket.connect(InetAddress.getByName("8.8.8.8"), 10002);
+            return socket.getLocalAddress().getHostAddress();
+        } catch (IOException e) {
+            try {
+                return InetAddress.getLocalHost().getHostAddress();
+            } catch (UnknownHostException ex) {
+                return "unknown";
+            }
+        }
     }
 }

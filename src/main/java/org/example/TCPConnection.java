@@ -43,7 +43,7 @@ public class TCPConnection {
         try {
             Protocol.write(socket.getOutputStream(), message);
         } catch (IOException e) {
-            close(false);
+            System.err.println("Failed to send message to " + getPeerIP() + ": " + e.getMessage());
         }
     }
 
@@ -58,8 +58,8 @@ public class TCPConnection {
         isClosing = true;
 
         try {
+            if (shouldAddPeerLeftEvent) ChatHistory.add(Event.peerLeft(getPeerName(), getPeerIP()));
             if (!socket.isClosed()) {
-                if (shouldAddPeerLeftEvent) ChatHistory.add(Event.peerLeft(getPeerName(), getPeerIP()));
                 socket.shutdownOutput();
                 socket.close();
             }
