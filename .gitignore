@@ -38,3 +38,6 @@ build/
 ### Mac OS ###
 .DS_Store
 /.idea/
+/docker-compose.yml
+/dependency-reduced-pom.xml
+/Dockerfile
